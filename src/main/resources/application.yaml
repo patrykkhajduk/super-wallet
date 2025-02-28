@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: super-wallet
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+      database: ${MONGODB_DATABASE}
+      username: ${MONGODB_USERNAME}
+      password: ${MONGODB_PASSWORD}
+      auto-index-creation: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: ${KAFKA_GROUP_ID}
+      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: io.hyde.infrastructure.adapters.input.messaging.events
+      topics:
+        wallet-commands:
+          name: ${KAFKA_TOPIC_WALLET_COMMANDS}
+          processing-timeout: ${KAFKA_TOPIC_PROCESSING_TIMEOUT:PT120S}
+          retry-count: ${KAFKA_TOPIC_RETRY_COUNT:10}
+          retry-delay: ${KAFKA_TOPIC_RETRY_DELAY:PT5S}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.trusted.packages: io.hyde.wallet.infrastructure.adapters.output.messaging.events;
+      topics:
+        wallet-events:
+          name: ${KAFKA_TOPIC_WALLET_EVENTS}
+  threads:
+    virtual:
+      enabled: true
+
+wallets:
+  limit-per-owner: ${WALLET_LIMIT_PER_OWNER}
+
+jobs:
+  process-missing-executed-commands:
+    cron: ${STORE_MISSING_EXECUTED_COMMANDS_JOB_CRON:* * * * * ?}
+    wallets-last-modified-date-delay: ${STORE_MISSING_EXECUTED_COMMANDS_JOB_WALLETS_LAST_MODIFIED_DATE_DELAY:PT60S}
+    timeout: ${STORE_MISSING_EXECUTED_COMMANDS_JOB_TIMEOUT:PT60S}
+  send-executed-commands:
+    cron: ${SEND_EXECUTED_COMMANDS_JOB_CRON:* * * * * ?}
+    page-size: ${SEND_EXECUTED_COMMANDS_JOB_PAGE_SIZE:100}
+    events-creation-date-delay: ${SEND_EXECUTED_COMMANDS_JOB_EVENTS_CREATION_DATE_DELAY:PT60S}
+    timeout: ${SEND_EXECUTED_COMMANDS_JOB_TIMEOUT:PT60S}
