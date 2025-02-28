@@ -1,0 +1,75 @@
+plugins {
+    id 'java'
+    id 'groovy'
+    id 'org.springframework.boot' version '3.4.3'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'io.hyde'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+def performance = sourceSets.create('performance')
+
+configurations[performance.implementationConfigurationName].extendsFrom(configurations.testImplementation)
+configurations[performance.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly)
+
+
+def performanceTestTask = tasks.register('performanceTest', Test) {
+    description = 'Runs performance tests'
+    group = 'verification'
+    useJUnitPlatform()
+
+    classpath = configurations[performance.runtimeClasspathConfigurationName] + performance.output
+    testClassesDirs = performance.output.classesDirs
+}
+
+dependencies {
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive:3.4.3'
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:6.3.0'
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-mongo:6.3.0'
+
+    implementation 'org.springframework.cloud:spring-cloud-starter-stream-kafka:4.2.0'
+    implementation 'org.springframework.cloud:spring-cloud-stream-binder-kafka-reactive:4.2.0'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.5'
+
+    implementation 'jakarta.validation:jakarta.validation-api:3.1.1'
+    implementation 'com.google.guava:guava:33.4.0-jre'
+
+    implementation 'ch.qos.logback.contrib:logback-json-classic:0.1.5'
+    implementation 'ch.qos.logback.contrib:logback-jackson:0.1.5'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.spockframework:spock-core:2.4-M5-groovy-4.0'
+    testImplementation 'org.spockframework:spock-spring:2.4-M5-groovy-4.0'
+    testImplementation 'io.projectreactor:reactor-test:3.7.3'
+    testImplementation 'org.springframework.kafka:spring-kafka-test:3.3.3'
+
+    testImplementation 'org.testcontainers:testcontainers:1.20.5'
+    testImplementation 'org.testcontainers:spock:1.20.5'
+    testImplementation 'org.testcontainers:mongodb:1.20.5'
+    testImplementation 'org.testcontainers:kafka:1.20.5'
+
+    performanceImplementation project
+}
+
+repositories {
+    mavenCentral()
+}
+
+test {
+    useJUnitPlatform()
+}

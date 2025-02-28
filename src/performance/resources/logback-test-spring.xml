@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <!-- Creates plain text logging appender with name: CONSOLE -->
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <appender name="ACTIVE_APPENDER" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+    <!-- WARN level active to avoid massive logs when running performance tests -->
+    <root level="WARN">
+        <appender-ref ref="ACTIVE_APPENDER"/>
+    </root>
+</configuration>
