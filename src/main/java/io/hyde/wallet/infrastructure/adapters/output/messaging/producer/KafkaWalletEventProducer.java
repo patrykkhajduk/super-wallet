@@ -1,7 +1,9 @@
 package io.hyde.wallet.infrastructure.adapters.output.messaging.producer;
 
 import io.hyde.wallet.application.ports.output.WalletEventsPort;
-import io.hyde.wallet.domain.model.ExecutedCommand;
+import io.hyde.wallet.domain.model.Wallet;
+import io.hyde.wallet.domain.model.command.result.WalletCommandResult;
+import io.hyde.wallet.infrastructure.adapters.output.messaging.events.ErrorEvent;
 import io.hyde.wallet.infrastructure.adapters.output.messaging.events.WalletEvent;
 import io.hyde.wallet.infrastructure.adapters.output.messaging.events.mapper.WalletEventMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -26,14 +28,18 @@ class KafkaWalletEventProducer implements WalletEventsPort {
     }
 
     @Override
-    public Mono<Void> sendEventFromExecutedCommand(ExecutedCommand executedCommand) {
-        log.info("Sending wallet update event for wallet: {} and last executed command: {}",
-                executedCommand.getWalletId(), executedCommand.getCommandResult());
-        return sendEvent(WalletEventMapper.map(executedCommand));
+    public Mono<Void> sendEventFromCommandExecutionResult(Wallet wallet, WalletCommandResult result) {
+        log.info("Sending wallet update event for wallet: {} and command result: {}", wallet.getId(), result);
+        return sendEvent(WalletEventMapper.map(result, wallet));
     }
 
     @Override
-    public Mono<Void> sendEvent(WalletEvent event) {
+    public Mono<Void> sendErrorEvent(String commandId, String walletId, String errorMessage) {
+        log.info("Sending error event for wallet: {} command: {}", walletId, commandId);
+        return sendEvent(new ErrorEvent(commandId, walletId, errorMessage));
+    }
+
+    private Mono<Void> sendEvent(WalletEvent event) {
         log.info("Sending {} for wallet: {}", event.getClass().getSimpleName(), event.walletId());
         return kafkaProducer.send(walletEventsTopic, event.walletId(), event)
                 .then();

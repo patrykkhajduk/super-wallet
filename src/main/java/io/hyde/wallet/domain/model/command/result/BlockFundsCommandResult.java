@@ -18,7 +18,7 @@ public final class BlockFundsCommandResult implements WalletCommandResult {
 
     public static BlockFundsCommandResult from(BlockFundsCommand command, String lockId, LocalDateTime timestamp) {
         return new BlockFundsCommandResult(
-                command.id(), command.walletId(), command.token(), command.amount(), lockId, timestamp);
+                command.getId(), command.getWalletId(), command.getToken(), command.getAmount(), lockId, timestamp);
     }
 
     private String id;

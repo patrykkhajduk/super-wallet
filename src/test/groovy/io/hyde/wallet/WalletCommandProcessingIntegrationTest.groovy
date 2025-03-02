@@ -12,7 +12,7 @@ import io.hyde.wallet.infrastructure.adapters.output.messaging.events.WalletSnap
 import io.hyde.wallet.utils.TestUtils
 import spock.util.concurrent.PollingConditions
 
-class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
+class WalletCommandProcessingIntegrationTest extends BaseIntegrationTest {
 
     private static final String BTC = "BTC"
     private static final String ETH = "ETH"
@@ -65,9 +65,8 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
         TestUtils.verifyFund(updatedWallet, ETH, amountEth)
 
         and:
-        testHelper.getExecutedCommandsCount() == 2
-        testHelper.verifyExecutedCommandIsMarkedAsSend(btcEvent.id(), wallet.getId())
-        testHelper.verifyExecutedCommandIsMarkedAsSend(ethEvent.id(), wallet.getId())
+        testHelper.verifyWalletProcessIsCompleted(btcEvent.id(), wallet.getId())
+        testHelper.verifyWalletProcessIsCompleted(ethEvent.id(), wallet.getId())
     }
 
     def "should block funds"() {
@@ -77,7 +76,7 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
 
         and:
         Wallet wallet = testHelper.initWallet()
-        testHelper.executeAndStoreSendCommands(
+        testHelper.executeCommands(
                 wallet,
                 new DepositFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, initialAmount))
 
@@ -105,8 +104,7 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
         TestUtils.verifyFund(updatedWallet, BTC, initialAmount - blockedAmount, [(lockId): blockedAmount])
 
         and:
-        testHelper.getExecutedCommandsCount() == 2
-        testHelper.verifyExecutedCommandIsMarkedAsSend(event.id(), wallet.getId())
+        testHelper.verifyWalletProcessIsCompleted(event.id(), wallet.getId())
     }
 
     def "should release blocked funds"() {
@@ -116,7 +114,7 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
 
         and:
         Wallet wallet = testHelper.initWallet()
-        wallet = testHelper.executeAndStoreSendCommands(
+        wallet = testHelper.executeCommands(
                 wallet,
                 new DepositFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, initialAmount),
                 new BlockFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, blockedAmount))
@@ -147,8 +145,7 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
         TestUtils.verifyFund(updatedWallet, BTC, initialAmount)
 
         and:
-        testHelper.getExecutedCommandsCount() == 3
-        testHelper.verifyExecutedCommandIsMarkedAsSend(event.id(), wallet.getId())
+        testHelper.verifyWalletProcessIsCompleted(event.id(), wallet.getId())
     }
 
     def "should withdraw blocked funds"() {
@@ -158,7 +155,7 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
 
         and:
         Wallet wallet = testHelper.initWallet()
-        wallet = testHelper.executeAndStoreSendCommands(
+        wallet = testHelper.executeCommands(
                 wallet,
                 new DepositFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, initialAmount),
                 new BlockFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, blockedAmount))
@@ -189,90 +186,41 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
         TestUtils.verifyFund(updatedWallet, BTC, initialAmount - blockedAmount)
 
         and:
-        testHelper.getExecutedCommandsCount() == 3
-        testHelper.verifyExecutedCommandIsMarkedAsSend(event.id(), wallet.getId())
+        testHelper.verifyWalletProcessIsCompleted(event.id(), wallet.getId())
     }
 
-    def "should send previous command event and process new one when executed command missing"() {
+    def "should not process command event when other not send event already exists for wallet"() {
         given:
         BigDecimal initialAmount = 11.11
-        BigDecimal topUpAmount = 22.22
-
-        and:
-        Wallet wallet = testHelper.initWallet()
-        DepositFundsCommand notStoredCommand =
-                new DepositFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, initialAmount)
-        wallet = testHelper.executeWithoutStoringCommand(wallet, notStoredCommand)
-
-        and:
-        DepositFundsCommandEvent event = new DepositFundsCommandEvent(
-                UUID.randomUUID().toString(), wallet.getId(), BTC, topUpAmount)
-
-        when:
-        testHelper.sendWalletCommandEvents(event)
-
-        then:
-        testHelper.verifyFundsAddedEvent(
-                notStoredCommand.id(),
-                BTC,
-                initialAmount,
-                new WalletSnapshot(
-                        wallet.getId(),
-                        wallet.getOwnerId(),
-                        [new FundSnapshot(BTC, initialAmount, BigDecimal.ZERO)]))
-        testHelper.verifyFundsAddedEvent(
-                event.id(),
-                BTC,
-                topUpAmount,
-                new WalletSnapshot(
-                        wallet.getId(),
-                        wallet.getOwnerId(),
-                        [new FundSnapshot(BTC, initialAmount + topUpAmount, BigDecimal.ZERO)]))
-
-        and:
-        Wallet updatedWallet = testHelper.getWallet(wallet.getId())
-        updatedWallet.getLastExecutedCommandId().get() == event.id()
-        updatedWallet.funds.size() == 1
-        TestUtils.verifyFund(updatedWallet, BTC, initialAmount + topUpAmount)
-
-        and:
-        testHelper.getExecutedCommandsCount() == 2
-        testHelper.verifyExecutedCommandIsMarkedAsSend(notStoredCommand.id(), wallet.getId())
-        testHelper.verifyExecutedCommandIsMarkedAsSend(event.id(), wallet.getId())
-    }
-
-    def "should not send command event when other not send event already exists for wallet"() {
-        given:
-        BigDecimal initialAmount = 11.11
-        BigDecimal topUpAmount = 22.22
 
         and:
         Wallet wallet = testHelper.initWallet()
         DepositFundsCommand notSendCommand =
                 new DepositFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, initialAmount)
-        wallet = testHelper.executeAndStoreNotSendCommands(wallet, notSendCommand)
+        wallet = testHelper.executeCommands(wallet, notSendCommand)
+        testHelper.storeIncompleteWalletProcess(wallet, notSendCommand)
 
         and:
         DepositFundsCommandEvent event = new DepositFundsCommandEvent(
-                UUID.randomUUID().toString(), wallet.getId(), BTC, topUpAmount)
+                UUID.randomUUID().toString(), wallet.getId(), BTC, 22.22)
 
         when:
         testHelper.sendWalletCommandEvents(event)
 
         then:
         new PollingConditions(timeout: 5).eventually {
-            testHelper.getWallet(wallet.getId()).getLastExecutedCommandId().get() == event.id()
+            testHelper.verifyWalletProcessIsNotCompleted(event.id(), wallet.getId())
         }
 
         and:
         Wallet updatedWallet = testHelper.getWallet(wallet.getId())
         updatedWallet.funds.size() == 1
-        TestUtils.verifyFund(updatedWallet, BTC, initialAmount + topUpAmount)
+        TestUtils.verifyFund(updatedWallet, BTC, initialAmount)
 
         and:
-        testHelper.getExecutedCommandsCount() == 2
-        testHelper.verifyExecutedCommandIsMarkedAsNotSend(notSendCommand.id(), wallet.getId())
-        testHelper.verifyExecutedCommandIsMarkedAsNotSend(event.id(), wallet.getId())
+        testHelper.getWalletProcessCount() == 2
+        testHelper.verifyWalletProcessIsNotCompleted(notSendCommand.getId(), wallet.getId())
+        testHelper.verifyWalletProcessIsNotCompleted(event.id(), wallet.getId())
     }
 
     def "should not execute already executed and stored command"() {
@@ -283,11 +231,12 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
         Wallet wallet = testHelper.initWallet()
         DepositFundsCommand executedDepositFundsCommand = new DepositFundsCommand(
                 UUID.randomUUID().toString(), wallet.getId(), BTC, initialAmount)
-        wallet = testHelper.executeAndStoreSendCommands(wallet, executedDepositFundsCommand)
+        wallet = testHelper.executeCommands(wallet, executedDepositFundsCommand)
+        testHelper.storeCompletedWalletProcess(executedDepositFundsCommand, wallet)
 
         and:
         DepositFundsCommandEvent event = new DepositFundsCommandEvent(
-                executedDepositFundsCommand.id(), wallet.getId(), BTC, 1.11)
+                executedDepositFundsCommand.getId(), wallet.getId(), BTC, 1.11)
 
         when:
         testHelper.sendWalletCommandEvents(event)
@@ -297,53 +246,15 @@ class WalletCommandExecutionIntegrationTest extends BaseIntegrationTest {
 
         and:
         Wallet updatedWallet = testHelper.getWallet(wallet.getId())
-        updatedWallet.getLastExecutedCommandId().get() == executedDepositFundsCommand.id()
+        updatedWallet.getLastExecutedCommandId().get() == executedDepositFundsCommand.getId()
         updatedWallet.funds.size() == 1
         TestUtils.verifyFund(updatedWallet, BTC, initialAmount)
 
         and:
-        testHelper.getExecutedCommandsCount() == 1
+        testHelper.getWalletProcessCount() == 1
     }
 
-    def "should not execute already executed and not stored command"() {
-        given:
-        BigDecimal initialAmount = 11.11
-
-        and:
-        Wallet wallet = testHelper.initWallet()
-        DepositFundsCommand executedDepositFundsCommand = new DepositFundsCommand(
-                UUID.randomUUID().toString(), wallet.getId(), BTC, initialAmount)
-        wallet = testHelper.executeWithoutStoringCommand(wallet, executedDepositFundsCommand)
-
-        and:
-        DepositFundsCommandEvent event = new DepositFundsCommandEvent(
-                executedDepositFundsCommand.id(), wallet.getId(), BTC, 1.11)
-
-        when:
-        testHelper.sendWalletCommandEvents(event)
-
-        then:
-        testHelper.verifyFundsAddedEvent(
-                event.id(),
-                BTC,
-                initialAmount,
-                new WalletSnapshot(
-                        wallet.getId(),
-                        wallet.getOwnerId(),
-                        [new FundSnapshot(BTC, initialAmount, BigDecimal.ZERO)]))
-
-        and:
-        Wallet updatedWallet = testHelper.getWallet(wallet.getId())
-        updatedWallet.getLastExecutedCommandId().get() == executedDepositFundsCommand.id()
-        updatedWallet.funds.size() == 1
-        TestUtils.verifyFund(updatedWallet, BTC, initialAmount)
-
-        and:
-        testHelper.getExecutedCommandsCount() == 1
-        testHelper.verifyExecutedCommandIsMarkedAsSend(event.id(), wallet.getId())
-    }
-
-    def "should send event to dlt if is invalid"() {
+    def "should send event to dlt when is invalid"() {
         given:
         Wallet wallet = testHelper.initWallet()
 

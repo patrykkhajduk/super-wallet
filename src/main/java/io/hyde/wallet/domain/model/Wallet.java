@@ -65,31 +65,31 @@ public final class Wallet {
 
     public WalletCommandResult execute(WalletCommand command, Clock clock) {
         return getLastExecutedCommandId()
-                .filter(command.id()::equals)
+                .filter(command.getId()::equals)
                 .map(commandId -> lastExecutedCommandResult)
                 .orElseGet(() -> executeNewCommand(command, clock));
     }
 
     private WalletCommandResult executeNewCommand(WalletCommand command, Clock clock) {
-        log.info("Executing {} {} on wallet {}", command.getClass().getSimpleName(), command.id(), id);
+        log.info("Executing {} {} on wallet {}", command.getClass().getSimpleName(), command.getId(), id);
         lastExecutedCommandResult = switch (command) {
             case DepositFundsCommand depositFundsCommand -> {
-                depositFunds(depositFundsCommand.token(), depositFundsCommand.amount());
+                depositFunds(depositFundsCommand.getToken(), depositFundsCommand.getAmount());
                 yield DepositFundsCommandResult.from(
                         depositFundsCommand, LocalDateTime.now(clock));
             }
             case BlockFundsCommand blockFundsCommand -> {
-                String lockId = blockFunds(blockFundsCommand.token(), blockFundsCommand.amount());
+                String lockId = blockFunds(blockFundsCommand.getToken(), blockFundsCommand.getAmount());
                 yield BlockFundsCommandResult.from(
                         blockFundsCommand, lockId, LocalDateTime.now(clock));
             }
             case ReleaseFundsCommand releaseFundsCommand -> {
-                Pair<String, BigDecimal> result = releaseFunds(releaseFundsCommand.lockId());
+                Pair<String, BigDecimal> result = releaseFunds(releaseFundsCommand.getLockId());
                 yield ReleaseFundsCommandResult.from(
                         releaseFundsCommand, result.getLeft(), result.getRight(), LocalDateTime.now(clock));
             }
             case WithdrawFundsCommand withdrawFundsCommand -> {
-                Pair<String, BigDecimal> result = withdrawFunds(withdrawFundsCommand.lockId());
+                Pair<String, BigDecimal> result = withdrawFunds(withdrawFundsCommand.getLockId());
                 yield WithdrawFundsCommandResult.from(
                         withdrawFundsCommand, result.getLeft(), result.getRight(), LocalDateTime.now(clock));
             }

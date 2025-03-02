@@ -1,10 +1,11 @@
 package io.hyde.wallet.utils
 
 import io.hyde.wallet.BaseIntegrationTest
-import io.hyde.wallet.domain.model.ExecutedCommand
 import io.hyde.wallet.domain.model.Token
 import io.hyde.wallet.domain.model.Wallet
 import io.hyde.wallet.domain.model.command.WalletCommand
+import io.hyde.wallet.domain.model.process.WalletProcess
+import io.hyde.wallet.domain.model.process.WalletProcess.WalletProcessStep
 import io.hyde.wallet.infrastructure.adapters.input.messaging.events.WalletCommandEvent
 import io.hyde.wallet.infrastructure.adapters.output.messaging.events.ErrorEvent
 import io.hyde.wallet.infrastructure.adapters.output.messaging.events.FundsAddedEvent
@@ -13,8 +14,8 @@ import io.hyde.wallet.infrastructure.adapters.output.messaging.events.FundsRelea
 import io.hyde.wallet.infrastructure.adapters.output.messaging.events.FundsWithdrawnEvent
 import io.hyde.wallet.infrastructure.adapters.output.messaging.events.WalletEvent
 import io.hyde.wallet.infrastructure.adapters.output.messaging.events.WalletSnapshot
-import io.hyde.wallet.infrastructure.adapters.output.persistence.repository.ExecutedCommandRepository
 import io.hyde.wallet.infrastructure.adapters.output.persistence.repository.TokenRepository
+import io.hyde.wallet.infrastructure.adapters.output.persistence.repository.WalletProcessRepository
 import io.hyde.wallet.infrastructure.adapters.output.persistence.repository.WalletRepository
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate
@@ -35,7 +36,7 @@ class TestHelper {
     private final Clock clock
     private final TokenRepository tokenRepository
     private final WalletRepository walletRepository
-    private final ExecutedCommandRepository executedCommandRepository
+    private final WalletProcessRepository walletProcessRepository
     private final ReactiveKafkaProducerTemplate<String, WalletCommandEvent> walletEventsProducer
     private final Flux<ReceiverRecord<String, WalletEvent>> walletEvents
     private final Flux<ReceiverRecord<String, WalletCommandEvent>> walletCommandsDltEvents
@@ -44,11 +45,11 @@ class TestHelper {
                KafkaProperties kafkaProperties,
                TokenRepository tokenRepository,
                WalletRepository walletRepository,
-               ExecutedCommandRepository executedCommandRepository) {
+               WalletProcessRepository walletProcessRepository) {
         this.clock = clock
         this.tokenRepository = tokenRepository
         this.walletRepository = walletRepository
-        this.executedCommandRepository = executedCommandRepository
+        this.walletProcessRepository = walletProcessRepository
         this.walletEventsProducer = new ReactiveKafkaProducerTemplate<>(
                 SenderOptions.create(kafkaProperties.buildProducerProperties()))
 
@@ -68,7 +69,7 @@ class TestHelper {
     void clearData() {
         tokenRepository.deleteAll().block(Duration.ofSeconds(1))
         walletRepository.deleteAll().block(Duration.ofSeconds(1))
-        executedCommandRepository.deleteAll().block(Duration.ofSeconds(1))
+        walletProcessRepository.deleteAll().block(Duration.ofSeconds(1))
     }
 
     Token initToken(String token) {
@@ -79,31 +80,34 @@ class TestHelper {
         return walletRepository.save(Wallet.forOwner(ownerId)).block(Duration.ofSeconds(1))
     }
 
-    Wallet executeAndStoreSendCommands(Wallet wallet, WalletCommand... commands) {
+    Wallet executeCommands(Wallet wallet, WalletCommand... commands) {
         commands.each {
             wallet.execute(it, clock)
-            ExecutedCommand executedCommand = ExecutedCommand.fromLastExecutedCommand(wallet)
-            executedCommand.markAsSend()
-            wallet = executedCommandRepository.save(executedCommand)
-                    .then(walletRepository.save(wallet))
-                    .block(Duration.ofSeconds(1))
+            wallet = walletRepository.save(wallet).block(Duration.ofSeconds(1))
         }
         return wallet
     }
 
-    Wallet executeAndStoreNotSendCommands(Wallet wallet, WalletCommand... commands) {
-        commands.each {
-            wallet.execute(it, clock)
-            wallet = executedCommandRepository.save(ExecutedCommand.fromLastExecutedCommand(wallet))
-                    .then(walletRepository.save(wallet))
-                    .block(Duration.ofSeconds(1))
-        }
-        return wallet
+    WalletProcess storeIncompleteWalletProcess(Wallet wallet, WalletCommand command) {
+        return walletProcessRepository.save(WalletProcess.fromWalletCommand(command, wallet))
+                .block(Duration.ofSeconds(1))
     }
 
-    Wallet executeWithoutStoringCommand(Wallet wallet, WalletCommand command) {
-        wallet.execute(command, clock)
-        return walletRepository.save(wallet).block(Duration.ofSeconds(1))
+    WalletProcess storeIncompleteWalletProcesses(Wallet wallet, WalletCommand... commands) {
+        walletProcessRepository.saveAll(Flux.fromArray(commands)
+                .delayElements(Duration.ofMillis(10))//introduce tiny delay to have different created dates
+                .map(command -> WalletProcess.fromWalletCommand(command, wallet))
+        ).blockLast(Duration.ofMillis(commands.length * 500))
+    }
+
+    WalletProcess storeCompletedWalletProcess(WalletCommand command, Wallet wallet) {
+        WalletProcess process = WalletProcess.fromWalletCommand(command, wallet)
+        WalletProcessStep.values()
+                .reverse()
+                .each {
+                    process.markStepAsCompleted(it, clock)
+                }
+        return walletProcessRepository.save(process).block(Duration.ofSeconds(1))
     }
 
     List<Token> getAllTokens() {
@@ -126,16 +130,8 @@ class TestHelper {
         return walletRepository.count().block(Duration.ofSeconds(1))
     }
 
-    long getExecutedCommandsCount() {
-        return executedCommandRepository.count().block(Duration.ofSeconds(1))
-    }
-
     void sendWalletCommandEvents(WalletCommandEvent... events) {
         sendWalletCommandEventsFlux(Flux.fromArray(events))
-    }
-
-    void sendWalletCommandEvents(List<WalletCommandEvent> events) {
-        sendWalletCommandEventsFlux(Flux.fromIterable(events))
     }
 
     private void sendWalletCommandEventsFlux(Flux<WalletCommandEvent> events) {
@@ -242,15 +238,17 @@ class TestHelper {
                 .block(Duration.ofSeconds(5))
     }
 
-    void verifyExecutedCommandIsMarkedAsSend(String commandId, String walletId) {
-        assert executedCommandRepository.findByWalletIdAndCommandId(walletId, commandId)
-                .block(Duration.ofSeconds(1))
-                .isSend()
+    long getWalletProcessCount() {
+        return walletProcessRepository.count().block(Duration.ofSeconds(1))
     }
 
-    void verifyExecutedCommandIsMarkedAsNotSend(String commandId, String walletId) {
-        assert !executedCommandRepository.findByWalletIdAndCommandId(walletId, commandId)
+    void verifyWalletProcessIsCompleted(String commandId, String walletId) {
+        assert walletProcessRepository.existsByCommandIdAndWalletIdAndCompleted(commandId, walletId, true)
                 .block(Duration.ofSeconds(1))
-                .isSend()
+    }
+
+    void verifyWalletProcessIsNotCompleted(String commandId, String walletId) {
+        assert walletProcessRepository.existsByCommandIdAndWalletIdAndCompleted(commandId, walletId, false)
+                .block(Duration.ofSeconds(1))
     }
 }

@@ -9,8 +9,8 @@ public record ErrorEvent(String commandId,
 
     public static ErrorEvent from(WalletCommand event, ApplicationException exception) {
         return new ErrorEvent(
-                event.id(),
-                event.walletId(),
+                event.getId(),
+                event.getWalletId(),
                 exception.getMessage());
     }
 }

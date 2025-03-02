@@ -21,7 +21,7 @@ public final class ReleaseFundsCommandResult implements WalletCommandResult {
                                                  BigDecimal releasedFundsAmount,
                                                  LocalDateTime timestamp) {
         return new ReleaseFundsCommandResult(
-                command.id(), command.walletId(), command.lockId(), releasedFundsToken, releasedFundsAmount, timestamp);
+                command.getId(), command.getWalletId(), command.getLockId(), releasedFundsToken, releasedFundsAmount, timestamp);
     }
 
     private String id;

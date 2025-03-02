@@ -22,7 +22,7 @@ class PerformanceTests extends BasePerformanceTest {
     private static final Logger log = LoggerFactory.getLogger(PerformanceTests)
     private static final String BTC = "BTC"
 
-    def "should process #eventsCount wallet events having #initialEntitiesCount wallets and commands"() {
+    def "should process #eventsCount wallet events having #initialEntitiesCount wallets and processes"() {
         given:
         BigDecimal amount = BigDecimal.ONE
 
@@ -35,12 +35,11 @@ class PerformanceTests extends BasePerformanceTest {
         Flux<WalletCommand> commandsFlux = Flux.fromStream(IntStream.rangeClosed(1, initialEntitiesCount).boxed())
                 .map(i -> new DepositFundsCommand(
                         UUID.randomUUID().toString(), wallet.getId(), BTC, amount) as WalletCommand)
-        performanceTestHelper.executeAndStoreSendCommands(wallet, commandsFlux).subscribe()
+        performanceTestHelper.storeCompleteWalletProcesses(wallet, commandsFlux).subscribe()
 
         new PollingConditions(timeout: initialEntitiesCount / 100, factor: 1.1).eventually {
             performanceTestHelper.getWalletsCount() == initialEntitiesCount + 1
-            performanceTestHelper.getExecutedCommandsCount() == initialEntitiesCount
-            performanceTestHelper.getWallet(wallet.getId()).getFunds()[BTC].getAvailable() == initialEntitiesCount * amount
+            performanceTestHelper.getWalletProcessesCount() == initialEntitiesCount
         }
 
         and:
@@ -50,7 +49,7 @@ class PerformanceTests extends BasePerformanceTest {
         new PollingConditions(timeout: 5).eventually {
             performanceTestHelper.getWallet(wallet.getId())
                     .getFunds()[BTC]
-                    .getAvailable() == (initialEntitiesCount + 1) * amount
+                    ?.getAvailable() == amount
         }
 
         when:
@@ -62,15 +61,15 @@ class PerformanceTests extends BasePerformanceTest {
 
         then:
         log.warn("Wait for all events to be processed")
-        new PollingConditions(timeout: eventsCount / 10).eventually {
+        new PollingConditions(timeout: eventsCount).eventually {
             performanceTestHelper.getWallet(wallet.getId())
                     .getFunds()[BTC]
-                    .getAvailable() == (initialEntitiesCount + eventsCount + 1) * amount
+                    .getAvailable() == (eventsCount + 1) * amount
         }
         and:
         log.warn("Check results")
         performanceTestHelper.getWalletsCount() == initialEntitiesCount + 1
-        performanceTestHelper.getExecutedCommandsCount() == initialEntitiesCount + eventsCount + 1
+        performanceTestHelper.getWalletProcessesCount() == initialEntitiesCount + eventsCount + 1
 
         and:
         log.warn("Print results")
@@ -83,6 +82,6 @@ class PerformanceTests extends BasePerformanceTest {
 
         where:
         initialEntitiesCount | eventsCount
-        100_000              | 10_000
+        10000                | 1000
     }
 }

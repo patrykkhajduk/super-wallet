@@ -35,9 +35,9 @@ class WalletTest extends Specification {
         DepositFundsCommandResult result = wallet.execute(command, clock) as DepositFundsCommandResult
 
         then:
-        result.id == command.id()
-        result.token == command.token()
-        result.amount == command.amount()
+        result.id == command.getId()
+        result.token == command.getToken()
+        result.amount == command.getAmount()
         result.timestamp == LocalDateTime.now(clock)
 
         and:
@@ -57,9 +57,9 @@ class WalletTest extends Specification {
         BlockFundsCommandResult result = wallet.execute(command, clock) as BlockFundsCommandResult
 
         then:
-        result.id == command.id()
-        result.token == command.token()
-        result.amount == command.amount()
+        result.id == command.getId()
+        result.token == command.getToken()
+        result.amount == command.getAmount()
         result.blockedFundsLockId != null
         result.timestamp == LocalDateTime.now(clock)
 
@@ -120,7 +120,7 @@ class WalletTest extends Specification {
         ReleaseFundsCommandResult result = wallet.execute(command, clock) as ReleaseFundsCommandResult
 
         then:
-        result.id == command.id()
+        result.id == command.getId()
         result.lockId == lockId1
         result.releasedFundsToken == BTC
         result.releasedFundsAmount == 1.11
@@ -145,7 +145,7 @@ class WalletTest extends Specification {
 
         then:
         WalletCommandExecutionException exception = thrown(WalletCommandExecutionException)
-        exception.getMessage() == "No funds found under lock ${command.lockId()}"
+        exception.getMessage() == "No funds found under lock ${command.getLockId()}"
 
         and:
         TestUtils.verifyFund(wallet, BTC, 10.00, [(lockId): 1.11])
@@ -165,7 +165,7 @@ class WalletTest extends Specification {
         WithdrawFundsCommandResult result = wallet.execute(command, clock) as WithdrawFundsCommandResult
 
         then:
-        result.id == command.id()
+        result.id == command.getId()
         result.lockId == lockId1
         result.withdrawnFundsToken == BTC
         result.withdrawnFundsAmount == 1.11
@@ -190,7 +190,7 @@ class WalletTest extends Specification {
 
         then:
         WalletCommandExecutionException exception = thrown(WalletCommandExecutionException)
-        exception.getMessage() == "No funds found under lock ${command.lockId()}"
+        exception.getMessage() == "No funds found under lock ${command.getLockId()}"
 
         and:
         TestUtils.verifyFund(wallet, BTC, 10.00, [(lockId): 1.11])

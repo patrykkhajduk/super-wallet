@@ -5,8 +5,6 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
-
 public interface WalletPort {
 
     Mono<Wallet> findById(String id);
@@ -18,6 +16,4 @@ public interface WalletPort {
     Mono<Long> count();
 
     <W extends Wallet> Mono<W> save(W wallet);
-
-    Flux<Wallet> findAllWithoutStoredLastExecutedCommand(LocalDateTime lastModifiedDateBefore);
 }

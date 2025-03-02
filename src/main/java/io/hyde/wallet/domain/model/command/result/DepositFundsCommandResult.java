@@ -18,7 +18,7 @@ public final class DepositFundsCommandResult implements WalletCommandResult {
 
     public static DepositFundsCommandResult from(DepositFundsCommand command, LocalDateTime timestamp) {
         return new DepositFundsCommandResult(
-                command.id(), command.walletId(), command.token(), command.amount(), timestamp);
+                command.getId(), command.getWalletId(), command.getToken(), command.getAmount(), timestamp);
     }
 
     private String id;

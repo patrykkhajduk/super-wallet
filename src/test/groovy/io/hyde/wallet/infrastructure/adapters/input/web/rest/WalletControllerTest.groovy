@@ -23,12 +23,12 @@ class WalletControllerTest extends BaseIntegrationTest {
     def "should return wallets page"() {
         given:
         Wallet wallet1 = testHelper.initWallet()
-        testHelper.executeAndStoreSendCommands(wallet1,
+        testHelper.executeCommands(wallet1,
                 new DepositFundsCommand(UUID.randomUUID().toString(), wallet1.getId(), BTC, 33.33),
                 new BlockFundsCommand(UUID.randomUUID().toString(), wallet1.getId(), BTC, 22.22))
 
         Wallet wallet2 = testHelper.initWallet()
-        testHelper.executeAndStoreSendCommands(wallet2,
+        testHelper.executeCommands(wallet2,
                 new DepositFundsCommand(UUID.randomUUID().toString(), wallet2.getId(), BTC, 55.55),
                 new BlockFundsCommand(UUID.randomUUID().toString(), wallet1.getId(), BTC, 33.33))
 
@@ -62,7 +62,7 @@ class WalletControllerTest extends BaseIntegrationTest {
     def "should return wallet by id when found"() {
         given:
         Wallet wallet = testHelper.initWallet()
-        wallet = testHelper.executeAndStoreSendCommands(wallet,
+        wallet = testHelper.executeCommands(wallet,
                 new DepositFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, 33.33),
                 new BlockFundsCommand(UUID.randomUUID().toString(), wallet.getId(), BTC, 11.11))
 

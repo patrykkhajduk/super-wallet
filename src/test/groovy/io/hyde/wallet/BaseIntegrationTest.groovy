@@ -66,10 +66,9 @@ abstract class BaseIntegrationTest extends Specification {
         registry.add("spring.kafka.consumer.topics.wallet-commands.name", () -> WALLET_COMMANDS_TOPIC)
         registry.add("spring.kafka.consumer.properties.spring.json.trusted.packages", () -> "*")
         registry.add("spring.kafka.producer.topics.wallet-events.name", () -> WALLET_EVENTS_TOPIC)
+        registry.add("spring.kafka.producer.topics.wallet-events.retry-count", () -> 0)
         registry.add("wallets.limit-per-owner", () -> 3)
-        registry.add("jobs.send-executed-commands.cron", () -> "0 0 0 * * ?")
-        registry.add("jobs.send-executed-commands.events-creation-date-delay", () -> Duration.ofMillis(1))
-        registry.add("jobs.process-missing-executed-commands.cron", () -> "0 0 0 * * ?")
-        registry.add("jobs.process-missing-executed-commands.wallets-last-modified-date-delay", () -> Duration.ofMillis(1))
+        registry.add("jobs.process-not-completed-wallet-processes-steps.cron", () -> "0 0 0 * * ?")
+        registry.add("jobs.process-not-completed-wallet-processes-steps.processes-creation-date-delay", () -> Duration.ofMillis(1))
     }
 }

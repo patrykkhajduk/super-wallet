@@ -39,12 +39,7 @@ wallets:
   limit-per-owner: ${WALLET_LIMIT_PER_OWNER}
 
 jobs:
-  process-missing-executed-commands:
-    cron: ${STORE_MISSING_EXECUTED_COMMANDS_JOB_CRON:* * * * * ?}
-    wallets-last-modified-date-delay: ${STORE_MISSING_EXECUTED_COMMANDS_JOB_WALLETS_LAST_MODIFIED_DATE_DELAY:PT60S}
-    timeout: ${STORE_MISSING_EXECUTED_COMMANDS_JOB_TIMEOUT:PT60S}
-  send-executed-commands:
-    cron: ${SEND_EXECUTED_COMMANDS_JOB_CRON:* * * * * ?}
-    page-size: ${SEND_EXECUTED_COMMANDS_JOB_PAGE_SIZE:100}
-    events-creation-date-delay: ${SEND_EXECUTED_COMMANDS_JOB_EVENTS_CREATION_DATE_DELAY:PT60S}
-    timeout: ${SEND_EXECUTED_COMMANDS_JOB_TIMEOUT:PT60S}
+  process-not-completed-wallet-processes-steps:
+    cron: ${PROCESS_NOT_COMPLETED_WALLET_PROCESSES_STEPS_JOB_CRON:* * * * * ?}
+    processes-creation-date-delay: ${PROCESS_NOT_COMPLETED_WALLET_PROCESSES_STEPS_PROCESSES_CREATION_DATE_DELAY:PT60S}
+    timeout: ${PROCESS_NOT_COMPLETED_WALLET_PROCESSES_STEPS_TIMEOUT:PT120S}
